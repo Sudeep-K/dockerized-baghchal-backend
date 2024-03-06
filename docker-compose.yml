@@ -1,0 +1,46 @@
+version: '3.8'
+
+x-worker-opts: &worker-opts
+  build:
+    context: .
+    dockerfile: Dockerfile
+  volumes:
+    - .:/usr/src/app
+  environment:
+    - CELERY_BROKER_URL=redis://redis:6379/0
+  depends_on:
+    - redis
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: django_dev
+    command: python manage.py runserver 0.0.0.0:3000
+    volumes:
+      - .:/usr/src/app
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+
+  easybot-worker:
+    command: tools/start_celery.sh -Q easybot --concurrency=1
+    <<: *worker-opts
+
+  mediumbot-worker:
+    command: tools/start_celery.sh -Q mediumbot --concurrency=1
+    <<: *worker-opts
+
+  hardbot-worker:
+    command: tools/start_celery.sh -Q hardbot --concurrency=1
+    <<: *worker-opts
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
